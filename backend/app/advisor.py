@@ -292,7 +292,7 @@ def chat(session_id: str | None, message: str) -> dict:
             s["history"].append({"role": "model", "parts": [{"text": out["reply"]}]})
             ready = profile_complete(s["profile"]) and (bool(out.get("ready")) or bool(s["profile"].get("needs")))
             reply = out["reply"]
-            if ready and not out.get("ready"):  # we have enough; don't leave a question hanging
+            if ready:  # the rules engine, not the AI, says what is in the bundle
                 reply = DONE[lang_key(s["language"])]
             result = {"reply": reply, "quick_replies": [], "ready": ready}
     if mode == "scripted":
