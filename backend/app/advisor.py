@@ -10,6 +10,7 @@ Without a Gemini key the same flow runs on a scripted set of questions.
 import json
 import os
 import re
+import time
 import uuid
 
 import httpx
@@ -18,6 +19,10 @@ from .recommender import NEED_TO_PRODUCT, recommend
 
 TIER1 = {"ahmedabad", "pune", "mumbai", "hyderabad", "delhi", "new delhi", "kolkata", "chennai", "bengaluru",
          "bangalore", "gurugram", "gurgaon", "noida"}
+# Owners often type the city in their own script.
+CITY_ALIASES = {"पुणे": "pune", "मुंबई": "mumbai", "दिल्ली": "delhi", "बेंगलुरु": "bengaluru", "बैंगलोर": "bengaluru",
+                "चेन्नई": "chennai", "कोलकाता": "kolkata", "हैदराबाद": "hyderabad", "अहमदाबाद": "ahmedabad",
+                "சென்னை": "chennai", "ಬೆಂಗಳೂರು": "bengaluru", "মুম্বাই": "mumbai", "কলকাতা": "kolkata", "पुणे शहर": "pune"}
 NEEDS = ["internet", "fast_internet", "dedicated_internet", "backup_internet"] + list(NEED_TO_PRODUCT)
 SESSIONS: dict[str, dict] = {}
 
@@ -26,8 +31,9 @@ clinics, CA firms, coaching centres, restaurants, small factories) choose busine
 digital tools on their phone, without a salesperson.
 
 Rules:
-- Reply in the language the owner writes in (Hindi, Hinglish, English, Tamil, Telugu, Kannada, Marathi,
-  Bengali, Gujarati, Malayalam or Punjabi). Keep replies to 1-2 short sentences. Use simple words, no jargon.
+- Reply in the language AND script the owner writes in (Hindi, Hinglish, English, Tamil, Telugu, Kannada, Marathi,
+  Bengali, Gujarati, Malayalam or Punjabi). If they write Hindi in Devanagari, reply in Devanagari, not Roman letters.
+  Keep replies to 1-2 short sentences. Use simple words, no jargon.
 - Ask ONE question at a time. You need: type of business, number of staff, number of branches/sites,
   city, whether they have GST registration (GSTIN), and what they need help with (internet, staff phones,
   WhatsApp for customers, billing machine, CCTV, email, website, backup if internet fails, etc.).
@@ -53,12 +59,11 @@ SCHEMA = {
             "type": "OBJECT",
             "properties": {
                 "business_type": {"type": "STRING"},
-                "employees": {"type": "INTEGER"},
-                "sites": {"type": "INTEGER"},
-                "city": {"type": "STRING"},
+                "employees": {"type": "INTEGER", "description": "number of staff including owner, e.g. 12"},
+                "sites": {"type": "INTEGER", "description": "number of shops/branches/sites, e.g. 1"},
+                "city": {"type": "STRING", "description": "city name in English letters, e.g. Pune"},
                 "has_gstin": {"type": "STRING", "enum": ["yes", "no", "unknown"]},
                 "fibre_available": {"type": "BOOLEAN"},
-                "budget_per_month": {"type": "INTEGER"},
                 "needs": {"type": "ARRAY", "items": {"type": "STRING", "enum": NEEDS}},
                 "not_needed": {"type": "ARRAY", "items": {"type": "STRING", "enum": NEEDS}},
             },
@@ -72,20 +77,110 @@ def gemini_key() -> str | None:
     return (os.getenv("GEMINI_API_KEY") or "").strip() or None
 
 
-def call_gemini(system: str, contents: list[dict], schema: dict | None = None) -> str:
-    model = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+# Lite models have the largest free-tier daily quota; the full model is a last resort.
+FALLBACK_MODELS = ["gemini-flash-lite-latest", "gemini-3.1-flash-lite", "gemini-3.5-flash"]
+
+
+def call_gemini(system: str, contents: list[dict], schema: dict | None = None, parse=None):
+    """Call Gemini; on a free-tier rate limit (429) or server error, wait briefly and try a
+    lighter model with its own quota before giving up."""
     body = {"system_instruction": {"parts": [{"text": system}]}, "contents": contents,
-            "generationConfig": {"temperature": 0.3}}
+            "generationConfig": {"temperature": 0.3, "maxOutputTokens": 2048}}
     if schema:
         body["generationConfig"].update({"responseMimeType": "application/json", "responseSchema": schema})
-    r = httpx.post(f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
-                   headers={"x-goog-api-key": gemini_key()}, json=body, timeout=40)
-    r.raise_for_status()
-    return r.json()["candidates"][0]["content"]["parts"][0]["text"]
+    models = [os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")] + FALLBACK_MODELS
+    last_error = None
+    plan = [models[0], models[0]] + models[1:]  # the primary model gets one retry
+    for attempt, model in enumerate(plan):
+        try:
+            r = httpx.post(f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+                           headers={"x-goog-api-key": gemini_key()}, json=body, timeout=25)
+        except httpx.HTTPError as e:  # slow or dropped connection: try the next model
+            last_error = f"{model}: {type(e).__name__}"
+            continue
+        if r.status_code == 200:
+            text = r.json()["candidates"][0]["content"]["parts"][0]["text"]
+            if parse is None:
+                return text
+            try:
+                return parse(text)
+            except ValueError as e:  # malformed JSON from a small model: ask the next one
+                last_error = f"{model}: bad JSON ({str(e)[:60]})"
+                continue
+        last_error = f"{model}: HTTP {r.status_code}"
+        if r.status_code in (429, 500, 503):
+            m = re.search(r'"retryDelay":\s*"(\d+)', r.text)
+            time.sleep(min(int(m.group(1)) if m else 2, 8) if attempt == 0 else 1)
+            continue
+        break
+    raise RuntimeError(last_error)
+
+
+DONE = {
+    "Hindi": "धन्यवाद! आपके लिए सबसे सही बंडल यह रहा।",
+    "Tamil": "நன்றி! உங்களுக்கு ஏற்ற திட்டம் இதோ.",
+    "English": "Thanks! Here is the bundle I recommend.",
+}
+
+
+def lang_key(language: str) -> str:
+    l = (language or "").lower()
+    return "Hindi" if "hin" in l else "Tamil" if "tamil" in l else "English"
+
+
+BUSY = {
+    "Hindi": "माफ़ कीजिए, अभी थोड़ी भीड़ है। कृपया अपना जवाब एक बार फिर भेजें।",
+    "Tamil": "மன்னிக்கவும், இப்போது சற்று நெரிசல். உங்கள் பதிலை மீண்டும் அனுப்புங்கள்.",
+    "English": "Sorry, we're a little busy right now. Please send that once more.",
+}
+
+
+def parse_reply(text: str) -> dict:
+    """Parse Gemini's JSON safely: small models occasionally emit absurdly long numbers."""
+    out = json.loads(text, parse_int=lambda d: int(d) if len(d) <= 7 else 0)
+    p = out.get("profile") or {}
+    for key, hi in (("employees", 5000), ("sites", 500)):
+        if not isinstance(p.get(key), int) or not 0 < p[key] <= hi:
+            p.pop(key, None)
+    out["profile"] = p
+    return out
+
+
+KNOWN_CITIES = sorted(TIER1 | {"indore", "jaipur", "kochi", "vadodara", "lucknow", "ludhiana", "bhopal", "mysuru",
+                               "nagpur", "nashik", "patna", "surat", "coimbatore", "visakhapatnam", "guwahati",
+                               "chandigarh", "kanpur", "madurai", "thiruvananthapuram", "bhubaneswar"}, key=len, reverse=True)
+
+
+def city_in(message: str) -> str | None:
+    """Backup for the model: pick up a city name the owner typed."""
+    m = message.lower()
+    return next((c.title() for c in KNOWN_CITIES if re.search(rf"\b{re.escape(c)}\b", m)), None)
+
+
+NEED_KEYWORDS = {
+    "internet": ["internet", "इंटरनेट", "broadband", "wifi", "इन्टरनेट"], "email": ["email", "ईमेल", "मेल"],
+    "backup_internet": ["backup", "बैकअप", "बंद हो"], "whatsapp": ["whatsapp", "व्हाट्सएप", "वॉट्सऐप"],
+    "cctv": ["cctv", "camera", "कैमरा", "सीसीटीवी"], "pos": ["billing", "pos", "upi", "बिलिंग"],
+    "mobile_lines": ["sim", "phone", "फोन", "सिम", "मोबाइल"], "website": ["website", "वेबसाइट"],
+}
+
+
+def needs_in(message: str) -> list[str]:
+    """Backup for the model: recognise needs typed in English or Hindi."""
+    m = message.lower()
+    return sorted(n for n, words in NEED_KEYWORDS.items() if any(w in m for w in words))
+
+
+def profile_complete(p: dict) -> bool:
+    """Only recommend once the facts the rules engine depends on are actually known.
+    Needs are optional: if the owner names none, the engine uses its segment defaults."""
+    return bool(p.get("business_type") and p.get("employees") and p.get("city")
+                and p.get("has_gstin") in ("yes", "no"))
 
 
 def to_engine_profile(p: dict) -> dict:
     city = (p.get("city") or "").strip()
+    city = CITY_ALIASES.get(city, city)
     return {
         "business_type": p.get("business_type"),
         "employees": p.get("employees") or 1,
@@ -172,15 +267,34 @@ def chat(session_id: str | None, message: str) -> dict:
             s["history"].append({"role": "user", "parts": [{"text": message}]})
         contents = s["history"] or [{"role": "user", "parts": [{"text": "Hi"}]}]
         try:
-            out = json.loads(call_gemini(SYSTEM + f"\nProfile so far: {json.dumps(s['profile'])}", contents, SCHEMA))
-        except Exception as e:  # network or quota problem: fall back rather than break the demo
-            mode = "scripted"
+            out = call_gemini(SYSTEM + f"\nProfile so far: {json.dumps(s['profile'])}", contents, SCHEMA, parse_reply)
+        except Exception as e:
             s["error"] = str(e)[:200]
+            if message:
+                s["history"].pop()  # let the owner simply send the same answer again
+            started = any(h["role"] == "model" for h in s["history"])
+            if started:
+                # Never switch language or flow mid-conversation; ask them to resend instead.
+                result = {"reply": BUSY[lang_key(s["language"])], "quick_replies": [], "ready": False}
+            else:
+                mode = "scripted"  # Gemini unreachable from the start: run the guided flow
         else:
-            s["profile"].update({k: v for k, v in (out.get("profile") or {}).items() if v not in (None, "", [])})
+            # Treat 0 / "unknown" as "not answered yet" so a guess never overwrites a real answer.
+            s["profile"].update({k: v for k, v in (out.get("profile") or {}).items()
+                                 if v not in (None, "", [], 0, "unknown")})
+            if not s["profile"].get("city") and message and city_in(message):
+                s["profile"]["city"] = city_in(message)
+            if not s["profile"].get("needs") and message:
+                found = needs_in(message)
+                if found:
+                    s["profile"]["needs"] = found
             s["language"] = out.get("language") or s["language"]
             s["history"].append({"role": "model", "parts": [{"text": out["reply"]}]})
-            result = {"reply": out["reply"], "quick_replies": [], "ready": bool(out.get("ready"))}
+            ready = profile_complete(s["profile"]) and (bool(out.get("ready")) or bool(s["profile"].get("needs")))
+            reply = out["reply"]
+            if ready and not out.get("ready"):  # we have enough; don't leave a question hanging
+                reply = DONE[lang_key(s["language"])]
+            result = {"reply": reply, "quick_replies": [], "ready": ready}
     if mode == "scripted":
         result = scripted_turn(s, message)
 

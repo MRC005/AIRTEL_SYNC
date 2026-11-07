@@ -18,10 +18,12 @@ async def main():
         phone = await browser.new_context(viewport={"width": 390, "height": 844}, device_scale_factor=2)
         page = await phone.new_page()
         await page.goto(URL)
-        await page.wait_for_selector(".bubble.bot")
+        await page.wait_for_selector(".bubble.bot:not(.typing)")
+        await page.wait_for_function("document.querySelector('#mode').textContent.length > 0")
         gemini = "Gemini" in (await page.inner_text("#mode") or "")
         answers = (["नमस्ते, मेरा डेंटल क्लिनिक है पुणे में", "12 लोग काम करते हैं, एक ही क्लिनिक है",
-                    "हाँ, GST है", "इंटरनेट, स्टाफ के लिए ईमेल, और इंटरनेट बंद हो तो बैकअप चाहिए"]
+                    "हाँ, GST है", "इंटरनेट, स्टाफ के लिए ईमेल, और इंटरनेट बंद हो तो बैकअप चाहिए",
+                    "नहीं, बस इतना ही चाहिए", "हाँ, आगे बढ़िए"]
                    if gemini else ["Dental clinic", "11-25", "1", "Pune", "Yes",
                                    "Internet, Business email, Backup if internet fails, Staff phone lines"])
         for a in answers:
@@ -29,9 +31,10 @@ async def main():
                 break
             await page.fill("#msg", a)
             await page.press("#msg", "Enter")
-            await page.wait_for_function("!document.querySelector('.bubble.typing')", timeout=60000)
-            await page.wait_for_timeout(400)
-        await page.screenshot(path=OUT / "1_advisor.png")
+            await page.wait_for_function("!document.querySelector('.bubble.typing')", timeout=120000)
+            if await page.is_visible("#advisor"):  # keep the latest chat state for the deck
+                await page.screenshot(path=OUT / "1_advisor.png")
+            await page.wait_for_timeout(4000 if gemini else 400)  # stay well inside the free-tier rate limit
         await page.wait_for_selector("#quote:not([hidden])", timeout=60000)
         await page.wait_for_timeout(1200)
         await page.screenshot(path=OUT / "2_quote.png")

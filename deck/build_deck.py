@@ -207,7 +207,7 @@ for i, (t, d) in enumerate(how):
 s = new_slide()
 header(s, "One sitting, on the phone, in the owner's language",
        "Working prototype. The AI advisor talks; a rules engine picks products and prices, so it never quotes something the business cannot buy.")
-shots = [("1_advisor.png", "1 · Advisor asks ≤6 questions\nchat or voice, 10 languages"),
+shots = [("1_advisor.png", "1 · Advisor asks ≤6 questions\nin the owner's language"),
          ("2_quote.png", "2 · One monthly price\ntoggle add-ons, see GST & setup"),
          ("4_kyc.png", "3 · Smart KYC in seconds\nregistry checks, plain-language fixes"),
          ("5_tracker.png", "4 · Order tracker\nWhatsApp updates instead of calls")]
@@ -216,7 +216,7 @@ for i, (img, cap) in enumerate(shots):
 box(s, 7.05, 1.45, 2.5, 3.45, fill=LIGHT, line=None)
 text(s, 7.17, 1.52, 2.3, 3.35, [
     [("How the advisor decides", {"bold": True, "size": 10, "color": RED})],
-    "Gemini converses in Hindi, Tamil, Kannada, Marathi, Bengali and more, and fills a business profile (type, staff, sites, city, GSTIN, needs).",
+    "Gemini talks in the owner's own language and script (tested in Hindi and Tamil; the model also supports Kannada, Marathi, Bengali and more) and fills a business profile: type, staff, sites, city, GSTIN, needs.",
     "A deterministic engine applies every catalogue rule: city tier, minimum staff and sites, GSTIN-only products and product dependencies. It swaps in the closest eligible product and says why.",
     [("Tested cases: ", {"bold": True}), ("no GSTIN → website instead of WhatsApp API; no fibre → 5G AirFiber; 5 staff asking for a leased line → fibre 300 + failover.", {})],
     [("Why it matters: ", {"bold": True}), ("Tamil- and Kannada-preferring leads activate at 4–5% vs 8% for Hindi/English. A vernacular advisor targets that gap directly.", {})],

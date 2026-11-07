@@ -76,7 +76,7 @@ def priced_selection(s: dict, selected: list[Selected]) -> dict:
 
 @app.get("/api/health")
 def health():
-    return {"ok": True, "gemini": bool(advisor.gemini_key()), "model": os.getenv("GEMINI_MODEL", "gemini-2.5-flash")}
+    return {"ok": True, "gemini": bool(advisor.gemini_key()), "model": os.getenv("GEMINI_MODEL", "gemini-3.5-flash-lite")}
 
 
 @app.post("/api/advisor/chat")
