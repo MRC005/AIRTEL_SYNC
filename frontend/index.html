@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Accel Business · OneSitting</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hind:wght@400;500;600&family=Plus+Jakarta+Sans:wght@500;700;800&display=swap">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="frame">
+    <header class="top">
+      <div class="brand"><span class="logo">A</span><div><b>Accel Business</b><small>OneSitting · everything set up in one go</small></div></div>
+      <button class="link" id="toBackoffice">Sales view</button>
+    </header>
+
+    <nav class="steps" aria-label="Progress">
+      <span data-step="advisor" class="on">1 Advisor</span>
+      <span data-step="quote">2 Quote</span>
+      <span data-step="kyc">3 KYC</span>
+      <span data-step="track">4 Track</span>
+    </nav>
+
+    <!-- 1. Advisor -->
+    <section id="advisor" class="view">
+      <div class="langs" id="langs" aria-label="Language">
+        <button data-lang="en" data-hello="Hi" class="on">English</button>
+        <button data-lang="hi" data-hello="नमस्ते">हिंदी</button>
+        <button data-lang="ta" data-hello="வணக்கம்">தமிழ்</button>
+        <button data-lang="kn" data-hello="ನಮಸ್ಕಾರ">ಕನ್ನಡ</button>
+        <button data-lang="mr" data-hello="नमस्कार">मराठी</button>
+        <button data-lang="bn" data-hello="নমস্কার">বাংলা</button>
+      </div>
+      <div class="chat" id="chat"></div>
+      <div class="chips" id="chips"></div>
+      <form class="composer" id="composer">
+        <button type="button" class="mic" id="mic" title="Speak" aria-label="Speak">🎤</button>
+        <input id="msg" autocomplete="off" placeholder="Type your answer…">
+        <button class="send" aria-label="Send">➤</button>
+      </form>
+      <p class="mode" id="mode"></p>
+    </section>
+
+    <!-- 2. Quote & checkout -->
+    <section id="quote" class="view" hidden>
+      <div class="card hero-price">
+        <small id="segName"></small>
+        <div class="price"><span>₹</span><b id="total">0</b><em>/month</em></div>
+        <p class="muted" id="priceMeta"></p>
+        <p class="explain" id="explain"></p>
+        <p class="warn" id="budget" hidden></p>
+      </div>
+      <h3>In your bundle</h3>
+      <div id="items" class="list"></div>
+      <h3>Add if you need</h3>
+      <div id="addons" class="list"></div>
+      <details class="card subtle" id="notEligible"><summary>Why some products are not offered</summary><ul></ul></details>
+      <button class="primary" id="toKyc">Continue to quick KYC</button>
+    </section>
+
+    <!-- 3. Smart KYC -->
+    <section id="kyc" class="view" hidden>
+      <div class="card" id="consentCard">
+        <h3>Before you upload</h3>
+        <dl id="notice"></dl>
+        <label class="check"><input type="checkbox" id="agree"> I agree to Accel verifying these documents for KYC only.</label>
+        <button class="primary" id="giveConsent" disabled>Agree and continue</button>
+      </div>
+      <div class="card" id="uploadCard" hidden>
+        <h3>Upload 4 documents</h3>
+        <p class="muted">GST certificate, Udyam certificate, a utility bill under 90 days old and the signatory's ID. Photos are fine.</p>
+        <input type="file" id="files" accept="image/*" multiple>
+        <div class="or">or try a sample applicant</div>
+        <select id="sample">
+          <option value="">Choose sample…</option>
+          <option>K01</option><option>K02</option><option>K03</option><option>K04</option><option>K05</option><option>K06</option>
+          <option>K07</option><option>K08</option><option>K09</option><option>K10</option><option>K11</option><option>K12</option>
+        </select>
+        <button class="primary" id="verify">Verify documents</button>
+      </div>
+      <div id="kycResult"></div>
+    </section>
+
+    <!-- 4. Tracker -->
+    <section id="track" class="view" hidden>
+      <div class="card">
+        <small class="muted">Order</small>
+        <h2 id="orderId"></h2>
+        <p class="muted" id="orderMeta"></p>
+      </div>
+      <ol class="timeline" id="timeline"></ol>
+      <h3>Your services</h3>
+      <div id="orderItems" class="list"></div>
+      <div class="wa" id="wa"></div>
+      <button class="ghost" id="advance">Demo: move one day ahead</button>
+    </section>
+
+    <!-- Back office -->
+    <section id="backoffice" class="view wide" hidden>
+      <button class="link" id="backToApp">← Back to customer app</button>
+      <h2>Leads to call today</h2>
+      <p class="muted" id="modelMeta"></p>
+      <div class="tablewrap"><table id="callList"><thead><tr><th>Score</th><th>Business</th><th>City · language</th><th>Source</th><th>Why it stalled</th></tr></thead><tbody></tbody></table></div>
+      <h3>What drives conversion</h3>
+      <div id="drivers" class="drivers"></div>
+      <h3>Advisor chats not yet closed</h3>
+      <div id="unclosed" class="list"></div>
+    </section>
+  </div>
+  <script src="app.js"></script>
+</body>
+</html>

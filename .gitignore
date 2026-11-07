@@ -1,0 +1,11 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+node_modules/
+backend/runtime/
+.DS_Store
+# Airtel's case brief and slide template stay out of the public repo
+docs/Airtel_SYNC_Case.pdf
+docs/Submission Template_Sync.pptx
+deck/_bg_content.jpg
