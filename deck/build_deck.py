@@ -147,8 +147,8 @@ header(s, "Leads are lost to process friction, not to lack of demand",
        "Only 368 of 5,000 leads (7.4%) activate. 1,636 of the drops are visits, quotes, paperwork and install waits a digital journey can remove.")
 stages = [("Leads", 5000), ("Contacted", 3406), ("Needs assessed", 1974), ("Quote accepted", 861), ("KYC complete", 588),
           ("Activated", 368)]
-leaks = {1: ("827 waited for a visit that never came", RED), 2: ("385 lost to slow or confusing quotes", RED),
-         3: ("273 gave up on paperwork", RED), 4: ("151 cancelled during a 10–14 day install", RED)}
+leaks = {1: ("827 lost waiting on a sales visit", RED), 2: ("385 lost to slow or confusing quotes", RED),
+         3: ("273 gave up on paperwork", RED), 4: ("151 lost to install delays (21+ days) or cancelled", RED)}
 y0, bar_max = 1.55, 2.3
 for i, (name, n) in enumerate(stages):
     y = y0 + i * 0.5
@@ -159,11 +159,11 @@ for i, (name, n) in enumerate(stages):
     if i in leaks:  # the drop happens between this stage and the next
         text(s, 4.35, y + 0.27, 2.05, 0.3, "↓ " + leaks[i][0], size=8, color=RED, bold=True)
 text(s, 0.45, 4.6, 4.9, 0.4, "Drop reasons at each stage, smb_leads.csv (synthetic), Apr–Jun 2026. "
-     "The other 2,385 drops are no-answer, not interested or price: the advisor still helps, but we do not count them.",
+     "The other 2,996 drops are no-answer, not interested, price or provider lock-in: the advisor still helps, but we do not count them.",
      size=7.5, color=GREY)
 
 cards = [
-    ("17.6 days", "from lead to activation; every activated customer chased status 3 times"),
+    ("17.6 days", "from lead to activation, with customers chasing status 3 times on average"),
     ("6% → 28%", "6-month churn rises with every status chase (1 call vs 5 calls). Waiting hurts loyalty, not just conversion"),
     ("₹15,053", "acquisition cost per activation, against a median bundle of ₹6,900/month"),
     ("9.6% vs 2.0%", "activation with vs without a GSTIN. A ₹41,700 CAC for no-GSTIN leads: needs a different, cheaper path"),
@@ -239,11 +239,11 @@ kyc_rows = [["Sample", "What our checks found", "Decision"],
             ["K01", "GSTIN cancelled in registry; Udyam no. missing (OCR slip I→T auto-fixed)", [("Re-quote without GST products", {"color": RED, "bold": True})]],
             ["K02", "Certificate photographed 7° tilted → straightened, all checks pass", [("Approved", {"color": GREEN, "bold": True})]],
             ["K04", "GST certificate too blurry to read → ask for a retake", [("Owner fixes", {"color": AMBER, "bold": True})]],
-            ["K05", "Udyam certificate missing; LLP signatory needs authorisation", [("Owner fixes", {"color": AMBER, "bold": True})]],
+            ["K05 · K10", "LLP signatory needs an authorisation letter; K05 also missing Udyam certificate; K10 GSTIN OCR slip auto-repaired", [("Owner fixes", {"color": AMBER, "bold": True})]],
             ["K06", "GSTIN on document fails checksum (1 digit changed)", [("Manual review", {"color": AMBER, "bold": True})]],
             ["K07", "Legal name edited: ‘Shri’ vs registry ‘Neelgiri’ Physio Clinic", [("Manual review", {"color": AMBER, "bold": True})]],
             ["K11", "Utility bill 257 days old (limit 90)", [("Owner fixes", {"color": AMBER, "bold": True})]],
-            ["K03 K08 K09 K12", "All checks pass (K10 after GSTIN OCR auto-repair)", [("Approved", {"color": GREEN, "bold": True})]]]
+            ["K03 K08 K09 K12", "All checks pass", [("Approved", {"color": GREEN, "bold": True})]]]
 table(s, 0.45, 2.3, [1.0, 3.25, 1.5], kyc_rows, row_h=0.29, size=7.5)
 box(s, 6.4, 2.3, 3.15, 2.62, fill=LIGHT, line=None)
 text(s, 6.52, 2.36, 2.95, 2.55, [
@@ -254,7 +254,7 @@ text(s, 6.52, 2.36, 2.95, 2.55, [
     [("Retention & rights: ", {"bold": True}), ("verified fields kept for the contract plus the regulatory period; view, correct or withdraw from the app.", {})],
     [("Next: ", {"bold": True}), ("DigiLocker pull and Aadhaar e-sign replace uploads entirely for most owners.", {})],
 ], size=8.5, spacing=5)
-text(s, 0.45, 4.93, 9.1, 0.2, "Architecture: phone web app / WhatsApp / voice → FastAPI → advisor (Gemini + rules engine) · quote · Smart KYC · orders & tracker · sales view (propensity model)",
+text(s, 0.45, 4.93, 9.1, 0.2, "Architecture: phone web app with voice input → FastAPI → advisor (Gemini + rules engine) · quote · Smart KYC · orders & tracker · sales view (propensity model). WhatsApp front end is the next step.",
      size=7.5, color=DARK)
 
 # ---------------- 6. Competitive analysis ----------------
@@ -317,6 +317,12 @@ sld_ids = prs.slides._sldIdLst
 template_content = list(sld_ids)[1]
 prs.part.drop_rel(template_content.rId)
 sld_ids.remove(template_content)
+# File properties show the team, not the tool that assembled the slides.
+cp = prs.core_properties
+cp.author = "Machum Roy Choudhury, Cheralathan M"
+cp.last_modified_by = "Machum Roy Choudhury"
+cp.title = f"OneSitting · Team {TEAM} ({CAMPUS})"
+cp.subject = "Airtel Sync 2026 · Digital Track · Project Udyam Digital"
 prs.save(OUT)
 bg_content.unlink(missing_ok=True)
 print("saved", OUT, "slides:", len(prs.slides))
